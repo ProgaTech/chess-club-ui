@@ -247,7 +247,7 @@ function CompactName(props: ICompactNameProps) {
   const winner = pair.winner !== null && pair.winner.toLowerCase() === name.toLowerCase()
 
   return (
-    <p className={cn('min-w-0 text-base font-bold break-words', align === 'end' && 'text-right', winner && 'text-emerald-700')}>
+    <p className={cn('min-w-0 text-base font-bold break-words', align === 'end' && 'text-right', winner && 'text-emerald-700 dark:text-emerald-400')}>
       <PlayerName align={align} name={name} roster={roster} showNote={false} />
     </p>
   )
@@ -298,11 +298,11 @@ function PlayerSide(props: IPlayerSideProps) {
 
   return (
     <div className={cn('min-w-0', align === 'end' && 'text-right')}>
-      <p className={cn('text-lg font-bold break-words', winner && 'text-emerald-700')}>
+      <p className={cn('text-lg font-bold break-words', winner && 'text-emerald-700 dark:text-emerald-400')}>
         <PlayerName align={align} name={name} roster={roster} showNote={false} />
       </p>
       {showPoints ? (
-        <p className={cn('mt-1 text-sm font-bold tabular-nums', winner ? 'text-emerald-700' : 'text-muted-foreground')}>
+        <p className={cn('mt-1 text-sm font-bold tabular-nums', winner ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground')}>
           {pointLabel(points)}
         </p>
       ) : null}

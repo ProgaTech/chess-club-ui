@@ -142,7 +142,7 @@ function DeadlineRow(props: IDeadlineRowProps) {
   const timing = roundTiming(round)
 
   return (
-    <tr className={cn('border-t border-border', timing === 'current' && 'bg-emerald-50')}>
+    <tr className={cn('border-t border-border', timing === 'current' && 'bg-emerald-50 dark:bg-emerald-950/40')}>
       <td className="px-4 py-4 font-bold">
         <span className="inline-flex items-center gap-2">
           {timing === 'past' ? <CircleCheck className="size-4 text-emerald-600" /> : null}
@@ -188,7 +188,7 @@ function DeadlineList() {
           <li
             className={cn(
               'flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm',
-              timing === 'current' ? 'bg-emerald-50 font-bold' : 'bg-muted',
+              timing === 'current' ? 'bg-emerald-50 font-bold dark:bg-emerald-950/40' : 'bg-muted',
             )}
             key={round.round}
           >

@@ -49,22 +49,22 @@ type PairKind = ITestPairing['kind']
 type MoveMark = 'up' | 'down' | null
 
 const POINT_TONES = [
-  'bg-[#ddd9d3]',
-  'bg-[#c9daf5]',
-  'bg-[#b7d7b0]',
-  'bg-[#9fd9cf]',
-  'bg-[#f3d19a]',
-  'bg-[#f0c0a4]',
-  'bg-[#e7aeb8]',
-  'bg-[#d4b8ea]',
-  'bg-[#c5c9a4]',
+  'bg-[#ddd9d3] dark:bg-[#3d3a36]',
+  'bg-[#c9daf5] dark:bg-[#2b3a55]',
+  'bg-[#b7d7b0] dark:bg-[#2f4a2b]',
+  'bg-[#9fd9cf] dark:bg-[#1f4a44]',
+  'bg-[#f3d19a] dark:bg-[#55421f]',
+  'bg-[#f0c0a4] dark:bg-[#5a3626]',
+  'bg-[#e7aeb8] dark:bg-[#57303a]',
+  'bg-[#d4b8ea] dark:bg-[#43335a]',
+  'bg-[#c5c9a4] dark:bg-[#43462c]',
 ]
 
 const KIND_STYLES: Record<PairKind, IKindStyle> = {
-  same: { card: 'bg-[#e7f2e4]', dot: 'bg-[#3d6b45]', label: 'Same score' },
-  up: { card: 'bg-[#f8ecd4]', dot: 'bg-[#a16207]', label: 'Played up' },
-  down: { card: 'bg-[#e4eef8]', dot: 'bg-[#1d4e89]', label: 'Played down' },
-  bye: { card: 'bg-[#eceae6]', dot: 'bg-[#5e6663]', label: 'Bye' },
+  same: { card: 'bg-[#e7f2e4] dark:bg-[#22352a]', dot: 'bg-[#3d6b45] dark:bg-[#6fae7b]', label: 'Same score' },
+  up: { card: 'bg-[#f8ecd4] dark:bg-[#3d3020]', dot: 'bg-[#a16207] dark:bg-[#d9a441]', label: 'Played up' },
+  down: { card: 'bg-[#e4eef8] dark:bg-[#1f2e40]', dot: 'bg-[#1d4e89] dark:bg-[#5b8fd1]', label: 'Played down' },
+  bye: { card: 'bg-[#eceae6] dark:bg-[#2c2f2d]', dot: 'bg-[#5e6663] dark:bg-[#a3aba7]', label: 'Bye' },
 }
 
 const KIND_ORDER: PairKind[] = ['same', 'up', 'down', 'bye']
@@ -249,7 +249,7 @@ function PlayerTile(props: IPlayerTileProps) {
     <div className={cn('rounded-xl bg-card px-3 py-3', align === 'end' && 'text-right')}>
       <div className={cn('flex items-center gap-2', align === 'end' && 'flex-row-reverse')}>
         <span
-          className={cn('size-3 shrink-0 rounded-full border border-foreground', color === 'white' ? 'bg-white' : 'bg-foreground')}
+          className={cn('size-3 shrink-0 rounded-full border border-foreground', color === 'white' ? 'bg-white' : 'bg-foreground dark:bg-background')}
           aria-label={color === 'white' ? 'White' : 'Black'}
         />
         <span className="truncate font-bold">{side.name}</span>

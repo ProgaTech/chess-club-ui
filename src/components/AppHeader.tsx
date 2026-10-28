@@ -1,12 +1,18 @@
 import { ClerkLoading, Show, UserButton } from '@clerk/react'
+import { Monitor, Moon, Sun } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
+import { setThemeChoice, useThemeChoice } from '@/lib/theme'
+import type { ThemeChoice } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
 interface INavItemProps {
   to: string
   label: string
 }
+
+const NEXT_THEME: Record<ThemeChoice, ThemeChoice> = { system: 'light', light: 'dark', dark: 'system' }
+const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon }
 
 export function AppHeader() {
   return (
@@ -35,10 +41,31 @@ export function AppHeader() {
           <NavItem label="Members" to="/members" />
           <NavItem label="Draw" to="/draw" />
           <NavItem label="Games" to="/games" />
+        </Show>
+        <ThemeSwitch />
+        <Show when="signed-in">
           <UserButton />
         </Show>
       </nav>
     </header>
+  )
+}
+
+function ThemeSwitch() {
+  const choice = useThemeChoice()
+  const Icon = THEME_ICONS[choice]
+  const label = `Theme: ${choice}. Switch to ${NEXT_THEME[choice]}.`
+
+  return (
+    <button
+      aria-label={label}
+      className={cn(buttonVariants({ size: 'icon-sm', variant: 'ghost' }))}
+      onClick={() => setThemeChoice(NEXT_THEME[choice])}
+      title={label}
+      type="button"
+    >
+      <Icon />
+    </button>
   )
 }
 

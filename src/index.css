@@ -83,20 +83,21 @@
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    color-scheme: dark;
+    --background: #1a1e1c;
+    --foreground: #e8e6e2;
+    --card: #232826;
+    --card-foreground: #e8e6e2;
+    --popover: #232826;
+    --popover-foreground: #e8e6e2;
+    --primary: #e8e6e2;
+    --primary-foreground: #1a1e1c;
+    --secondary: #d46a75;
+    --secondary-foreground: #1a1e1c;
+    --muted: #2c322f;
+    --muted-foreground: #a3aba7;
+    --accent: #2c322f;
+    --accent-foreground: #e8e6e2;
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
@@ -126,4 +127,68 @@
   html {
     @apply font-sans;
     }
+}
+/* Draw reveal. A per-element delay comes from --draw-delay. */
+@theme {
+    --ease-draw: cubic-bezier(0.22, 1, 0.36, 1);
+    --animate-draw-pop: draw-pop 600ms cubic-bezier(0.34, 1.56, 0.64, 1) var(--draw-delay, 0ms) both;
+    --animate-draw-rise: draw-rise 500ms var(--ease-draw) var(--draw-delay, 0ms) both;
+    --animate-draw-turn: draw-turn 500ms var(--ease-draw) both;
+    --animate-draw-glow: draw-glow 1100ms ease-in-out infinite;
+
+    @keyframes draw-pop {
+        from {
+            opacity: 0;
+            transform: translateY(14px) scale(0.4);
+        }
+        70% {
+            opacity: 1;
+            transform: scale(1.08);
+        }
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+
+    @keyframes draw-rise {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+
+    @keyframes draw-turn {
+        from {
+            opacity: 0;
+            transform: perspective(600px) rotateX(80deg);
+        }
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+
+    @keyframes draw-glow {
+        0%,
+        100% {
+            box-shadow: 0 0 0 0 color-mix(in oklch, var(--secondary), transparent 100%);
+        }
+        50% {
+            box-shadow: 0 0 0 6px color-mix(in oklch, var(--secondary), transparent 75%);
+        }
+    }
+}
+
+/* A seat that has not been drawn yet. */
+@utility bg-face-down {
+    background-image: repeating-linear-gradient(
+        135deg,
+        transparent 0 6px,
+        color-mix(in oklch, var(--foreground), transparent 93%) 6px 12px
+    );
 }

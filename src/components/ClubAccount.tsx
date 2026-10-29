@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { IAccountFormValues } from '@/components/AccountForm'
 import { ClubAccountContext } from '@/lib/club-account'
-import type { ClubAccountState, IAccount } from '@/lib/club-account'
+import type { ClubAccountState, IAccount, Role } from '@/lib/club-account'
 import { clubGet, clubPut } from '@/lib/club-api'
 
 interface IAccountResponse {
   account: IAccount | null
+  role: Role
+  canViewAsMember?: boolean
 }
 
 interface IStoredAccount {
@@ -41,7 +43,9 @@ export function ClubAccountProvider(props: IClubAccountProviderProps) {
 
         const body = await clubGet<IAccountResponse>('/accounts/me', token)
         if (!cancelled) {
-          setStored({ userId: signedInUserId, state: { status: 'ready', account: body.account } })
+          const role = body.role === 'organizer' ? 'organizer' : 'member'
+          const canViewAsMember = body.canViewAsMember === true
+          setStored({ userId: signedInUserId, state: { status: 'ready', account: body.account, role, canViewAsMember } })
         }
       } catch (error) {
         if (!cancelled) {
@@ -75,7 +79,12 @@ export function ClubAccountProvider(props: IClubAccountProviderProps) {
         surname: values.surname,
         chessCom: values.chessCom.trim() || null,
       })
-      setStored({ userId: signedInUserId, state: { status: 'ready', account: saved } })
+      setStored((current) => {
+        const previous = current?.userId === signedInUserId && current.state.status === 'ready' ? current.state : null
+        const role = previous?.role ?? 'member'
+        const canViewAsMember = previous?.canViewAsMember ?? false
+        return { userId: signedInUserId, state: { status: 'ready', account: saved, role, canViewAsMember } }
+      })
       return null
     } catch (error) {
       return error instanceof Error ? error.message : 'Could not save this account.'

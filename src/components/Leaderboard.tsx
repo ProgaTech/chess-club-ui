@@ -148,7 +148,7 @@ function StandingRow(props: IStandingRowProps) {
           {standing.elo ?? '—'}
         </td>
       ) : null}
-      <td className={cn('py-2.5 pl-2 text-center text-base font-bold tabular-nums', leader && 'text-emerald-700')}>
+      <td className={cn('py-2.5 pl-2 text-center text-base font-bold tabular-nums', leader && 'text-emerald-700 dark:text-emerald-400')}>
         {tablePoints(standing.points)}
       </td>
     </tr>

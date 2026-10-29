@@ -45,11 +45,39 @@ interface IPreviewResponse {
   pairs: ITestPairing[]
 }
 
+// A saved round, with each player's points going into it, for the draw animation.
+export interface IDrawReveal {
+  round: number
+  pairs: IRevealPair[]
+}
+
+export interface IRevealPair {
+  white: ITestSide
+  black: ITestSide | null
+}
+
+type GenerateResponse =
+  | { rematch: true; round: number; pairs: ITestPairing[] }
+  | { rematch?: false; round: number; pairs: IRevealPair[] }
+
+// 'confirm': the organizer has to approve these pairs first. They repeat an old match, or they are a random draw.
+// 'saved': the round is saved; notice says if the board did not refresh after it.
+export type GenerateResult =
+  | { status: 'confirm'; pairs: ITestPairing[] }
+  | { status: 'saved'; reveal: IDrawReveal; notice: string | null }
+  | { status: 'error'; message: string }
+
+// 'score' pairs by points; 'random' ignores points. Kept pairs are saved as they are.
+export interface IGenerateChoice {
+  mode?: 'score' | 'random'
+  kept?: ITestPairing[]
+}
+
 interface IUseClubBoard {
   board: BoardState
   roster: ISignupPlayer[]
   addGame: (drawId: number, game: IAddMatchGame) => Promise<string | null>
-  generateRound: (round: number) => Promise<string | null>
+  generateRound: (round: number, choice?: IGenerateChoice) => Promise<GenerateResult>
   previewRound: (round: number) => Promise<ITestPairing[] | string>
 }
 
@@ -111,23 +139,32 @@ export function useClubBoard(): IUseClubBoard {
     }
   }
 
-  async function generateRound(round: number): Promise<string | null> {
+  async function generateRound(round: number, choice: IGenerateChoice = {}): Promise<GenerateResult> {
     try {
       const token = await getToken()
       if (!token) {
-        return 'Clerk has not issued a session token yet.'
+        return { status: 'error', message: 'Clerk has not issued a session token yet.' }
       }
-      await clubPost('/draws/next', token, { round })
+      const { kept, mode = 'score' } = choice
+      const body = kept ? { round, pairs: kept.map((pair) => ({ white: pair.white, black: pair.black })) } : { round, mode }
+      const generated = await clubPost<GenerateResponse>('/draws/next', token, body)
+      if (!Array.isArray(generated.pairs)) {
+        return { status: 'error', message: 'The club API returned an unexpected pairing.' }
+      }
+      if (generated.rematch) {
+        return { status: 'confirm', pairs: generated.pairs }
+      }
+      const reveal = { round: generated.round, pairs: generated.pairs }
       try {
         const next = await fetchBoard(token)
         setRoster(next.roster)
         setBoard({ status: 'ready', board: next.board })
+        return { status: 'saved', reveal, notice: null }
       } catch {
-        return 'Saved, but the board did not refresh.'
+        return { status: 'saved', reveal, notice: 'Saved, but the board did not refresh.' }
       }
-      return null
     } catch (error) {
-      return error instanceof Error ? error.message : 'Could not generate the next round.'
+      return { status: 'error', message: error instanceof Error ? error.message : 'Could not generate the next round.' }
     }
   }
 

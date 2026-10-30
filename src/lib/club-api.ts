@@ -10,6 +10,28 @@ interface IClubRequest {
 }
 
 const apiUrl = import.meta.env.VITE_API_URL ?? '/api'
+const viewAsKey = 'chess-club:view-as'
+
+// Organizers can browse as a member to test. The API only lets this header lower a role.
+export function viewingAsMember(): boolean {
+  try {
+    return localStorage.getItem(viewAsKey) === 'member'
+  } catch {
+    return false
+  }
+}
+
+export function setViewingAsMember(on: boolean): void {
+  try {
+    if (on) {
+      localStorage.setItem(viewAsKey, 'member')
+    } else {
+      localStorage.removeItem(viewAsKey)
+    }
+  } catch {
+    // Storage is blocked. The switch just stays off.
+  }
+}
 
 export function clubGet<T>(path: string, token: string): Promise<T> {
   return clubRequest<T>({ path, token, method: 'GET' })
@@ -33,6 +55,7 @@ async function clubRequest<T>(request: IClubRequest): Promise<T> {
     method,
     headers: {
       Authorization: `Bearer ${token}`,
+      ...(viewingAsMember() ? { 'X-View-As': 'member' } : {}),
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
     },
     body: body === undefined ? undefined : JSON.stringify(body),

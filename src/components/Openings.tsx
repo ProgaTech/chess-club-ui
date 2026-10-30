@@ -92,7 +92,7 @@ function OpeningRow(props: IOpeningRowProps) {
         {rank}
       </th>
       <td className="py-2.5 pr-3 font-bold">{opening.name}</td>
-      <td className={cn('px-1 py-2.5 text-center font-bold tabular-nums', leader && 'text-emerald-700')} title="Games">
+      <td className={cn('px-1 py-2.5 text-center font-bold tabular-nums', leader && 'text-emerald-700 dark:text-emerald-400')} title="Games">
         {opening.games}
       </td>
       <OpeningStat title="White wins" value={opening.whiteWins} />

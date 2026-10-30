@@ -1,7 +1,10 @@
-import { ArrowDown, ArrowUp, Repeat } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ArrowDown, ArrowUp, Clapperboard, Repeat } from 'lucide-react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { DrawReveal } from '@/components/DrawReveal'
 import { buttonVariants } from '@/components/ui/button'
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { formatPoints, pointsTone } from '@/lib/points'
 import type { ITestPairing, ITestSide } from '@/lib/use-board'
 import { cn } from '@/lib/utils'
 
@@ -11,11 +14,13 @@ interface ITestPairingsProps {
 }
 
 interface ITestPairingsModalProps {
+  open: boolean
   round: number
   pairs: ITestPairing[]
   pending: boolean
   message: string | null
   onAgain: () => void
+  onWatch: () => void
   onClose: () => void
 }
 
@@ -48,23 +53,11 @@ interface IScoreKeyProps {
 type PairKind = ITestPairing['kind']
 type MoveMark = 'up' | 'down' | null
 
-const POINT_TONES = [
-  'bg-[#ddd9d3]',
-  'bg-[#c9daf5]',
-  'bg-[#b7d7b0]',
-  'bg-[#9fd9cf]',
-  'bg-[#f3d19a]',
-  'bg-[#f0c0a4]',
-  'bg-[#e7aeb8]',
-  'bg-[#d4b8ea]',
-  'bg-[#c5c9a4]',
-]
-
 const KIND_STYLES: Record<PairKind, IKindStyle> = {
-  same: { card: 'bg-[#e7f2e4]', dot: 'bg-[#3d6b45]', label: 'Same score' },
-  up: { card: 'bg-[#f8ecd4]', dot: 'bg-[#a16207]', label: 'Played up' },
-  down: { card: 'bg-[#e4eef8]', dot: 'bg-[#1d4e89]', label: 'Played down' },
-  bye: { card: 'bg-[#eceae6]', dot: 'bg-[#5e6663]', label: 'Bye' },
+  same: { card: 'bg-[#e7f2e4] dark:bg-[#22352a]', dot: 'bg-[#3d6b45] dark:bg-[#6fae7b]', label: 'Same score' },
+  up: { card: 'bg-[#f8ecd4] dark:bg-[#3d3020]', dot: 'bg-[#a16207] dark:bg-[#d9a441]', label: 'Played up' },
+  down: { card: 'bg-[#e4eef8] dark:bg-[#1f2e40]', dot: 'bg-[#1d4e89] dark:bg-[#5b8fd1]', label: 'Played down' },
+  bye: { card: 'bg-[#eceae6] dark:bg-[#2c2f2d]', dot: 'bg-[#5e6663] dark:bg-[#a3aba7]', label: 'Bye' },
 }
 
 const KIND_ORDER: PairKind[] = ['same', 'up', 'down', 'bye']
@@ -76,6 +69,7 @@ export function TestPairings(props: ITestPairingsProps) {
   const [pending, setPending] = useState(false)
   const [pairs, setPairs] = useState<ITestPairing[]>([])
   const [message, setMessage] = useState<string | null>(null)
+  const [watching, setWatching] = useState(false)
   const round = drawCount + 1
 
   if (!searchParams.has('testing') || round < 2) {
@@ -89,8 +83,11 @@ export function TestPairings(props: ITestPairingsProps) {
     if (typeof result === 'string') {
       setPairs([])
       setMessage(result)
+      setWatching(false)
     } else {
       setPairs(result)
+      // Play the draw first; closing it leaves the detailed test view.
+      setWatching(result.length > 0)
     }
     setPending(false)
     setOpen(true)
@@ -106,14 +103,22 @@ export function TestPairings(props: ITestPairingsProps) {
       >
         {pending && !open ? 'Pairing…' : 'Test pairings'}
       </button>
-      {open ? (
-        <TestPairingsModal
-          message={message}
-          onAgain={() => void load()}
-          onClose={() => setOpen(false)}
-          pairs={pairs}
-          pending={pending}
-          round={round}
+      <TestPairingsModal
+        message={message}
+        onAgain={() => void load()}
+        onClose={() => setOpen(false)}
+        onWatch={() => setWatching(true)}
+        open={open && !watching}
+        pairs={pairs}
+        pending={pending}
+        round={round}
+      />
+      {open && watching ? (
+        <DrawReveal
+          grouped
+          onClose={() => setWatching(false)}
+          reveal={{ round, pairs: pairs.map((pair) => ({ white: pair.whitePlayer, black: pair.blackPlayer })) }}
+          saved={false}
         />
       ) : null}
     </>
@@ -121,36 +126,21 @@ export function TestPairings(props: ITestPairingsProps) {
 }
 
 function TestPairingsModal(props: ITestPairingsModalProps) {
-  const { round, pairs, pending, message, onAgain, onClose } = props
+  const { open, round, pairs, pending, message, onAgain, onWatch, onClose } = props
   const scores = scoreList(pairs)
 
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4"
-      onClick={onClose}
-      role="presentation"
+    <Dialog
+      onOpenChange={(next) => {
+        if (!next) {
+          onClose()
+        }
+      }}
+      open={open}
     >
-      <div
-        aria-labelledby="test-pairings-title"
-        aria-modal="true"
-        className="w-full max-w-3xl rounded-2xl border border-border bg-background p-6 text-foreground"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
+      <DialogContent className="max-w-3xl">
         <p className="text-xs font-bold tracking-[0.14em] text-secondary uppercase">Not saved</p>
-        <h2 className="mt-3 text-3xl font-bold tracking-normal" id="test-pairings-title">
-          Round {round} test
-        </h2>
+        <DialogTitle className="mt-3 text-3xl">Round {round} test</DialogTitle>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {KIND_ORDER.map((kind) => (
             <span className={cn('inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold', KIND_STYLES[kind].card)} key={kind}>
@@ -177,12 +167,21 @@ function TestPairingsModal(props: ITestPairingsModalProps) {
           >
             {pending ? 'Pairing…' : 'Draw again'}
           </button>
-          <button className={cn(buttonVariants({ size: 'lg', variant: 'outline' }))} onClick={onClose} type="button">
-            Close
-          </button>
+          {pairs.length > 0 ? (
+            <button
+              className={cn(buttonVariants({ size: 'lg', variant: 'outline' }))}
+              disabled={pending}
+              onClick={onWatch}
+              type="button"
+            >
+              <Clapperboard />
+              Watch the draw
+            </button>
+          ) : null}
+          <DialogClose className={cn(buttonVariants({ size: 'lg', variant: 'outline' }))}>Close</DialogClose>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -249,7 +248,7 @@ function PlayerTile(props: IPlayerTileProps) {
     <div className={cn('rounded-xl bg-card px-3 py-3', align === 'end' && 'text-right')}>
       <div className={cn('flex items-center gap-2', align === 'end' && 'flex-row-reverse')}>
         <span
-          className={cn('size-3 shrink-0 rounded-full border border-foreground', color === 'white' ? 'bg-white' : 'bg-foreground')}
+          className={cn('size-3 shrink-0 rounded-full border border-foreground', color === 'white' ? 'bg-white' : 'bg-foreground dark:bg-background')}
           aria-label={color === 'white' ? 'White' : 'Black'}
         />
         <span className="truncate font-bold">{side.name}</span>
@@ -315,13 +314,4 @@ function moveOf(kind: PairKind, side: ITestSide, other: ITestSide | null): MoveM
     return 'down'
   }
   return null
-}
-
-function pointsTone(points: number): string {
-  const index = Math.max(0, Math.round(points * 2))
-  return POINT_TONES[index] ?? POINT_TONES[POINT_TONES.length - 1] ?? 'bg-muted'
-}
-
-function formatPoints(points: number): string {
-  return Number.isInteger(points) ? String(points) : points.toFixed(1)
 }

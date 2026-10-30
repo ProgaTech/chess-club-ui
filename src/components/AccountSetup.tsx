@@ -1,8 +1,8 @@
 import { useUser } from '@clerk/react'
-import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { AccountForm } from '@/components/AccountForm'
 import type { IAccountFormValues } from '@/components/AccountForm'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useClubAccount } from '@/lib/club-account'
 
 export function AccountSetup() {
@@ -27,25 +27,13 @@ interface ISetupDialogProps {
 function SetupDialog(props: ISetupDialogProps) {
   const { children } = props
 
-  useEffect(() => {
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previous
-    }
-  }, [])
-
+  // No onOpenChange: the account has to be saved before the dialog goes away.
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4">
-      <div
-        aria-labelledby="account-setup-title"
-        aria-modal="true"
-        className="max-h-[min(40rem,calc(100%-2rem))] w-full max-w-3xl overflow-y-auto rounded-lg border border-border bg-background p-6 text-foreground"
-        role="dialog"
-      >
+    <Dialog open>
+      <DialogContent className="max-h-[min(40rem,calc(100%-2rem))] max-w-3xl overflow-y-auto rounded-lg">
         {children}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -60,9 +48,7 @@ function InitForm(props: IInitFormProps) {
   return (
     <section className="max-w-xl">
       <p className="text-xs font-bold tracking-[0.14em] text-secondary uppercase">Your account</p>
-      <h2 className="mt-3 text-4xl font-bold leading-tight tracking-normal" id="account-setup-title">
-        Add your account
-      </h2>
+      <DialogTitle className="mt-3 text-4xl leading-tight">Add your account</DialogTitle>
       <p className="mt-4 text-lg text-muted-foreground">
         This is stored for the Clerk user who is signed in. Elo starts at 1200.
       </p>

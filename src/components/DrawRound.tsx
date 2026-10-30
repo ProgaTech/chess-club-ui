@@ -1,10 +1,12 @@
 import { ChevronDown, CircleCheck, Crown, ExternalLink, Plus, Swords } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { GameBoard } from '@/components/GameBoard'
 import { buttonVariants } from '@/components/ui/button'
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { pointLabel } from '@/lib/board'
+import { canAddMatchGame, useClubAccount } from '@/lib/club-account'
 import type { IAddMatchGame, IBoardDraw, IBoardGame, IBoardPair, ISignupPlayer } from '@/lib/board'
 import { playerPath } from '@/lib/players'
 import { roundSchedule, roundTiming } from '@/lib/tournament'
@@ -42,11 +44,10 @@ interface IGameRowsProps {
   games: IBoardGame[]
 }
 
-interface IGameModalProps {
+interface IGameFormProps {
   pair: IBoardPair
   roster: ISignupPlayer[]
   onAdd: (url: string) => Promise<string | null>
-  onClose: () => void
 }
 
 interface IStatusBadgeProps {
@@ -129,6 +130,7 @@ export function DrawRound(props: IDrawRoundProps) {
 
 function MatchCard(props: IMatchCardProps) {
   const { pair, roster, onAddGame, compact = false } = props
+  const { state } = useClubAccount()
   const [detailsOpen, setDetailsOpen] = useState(!compact)
   const [modalOpen, setModalOpen] = useState(false)
   const black = pair.black ?? ''
@@ -175,7 +177,7 @@ function MatchCard(props: IMatchCardProps) {
           <GameRows games={pair.games} />
         </div>
       ) : null}
-      {showDetails && pair.status !== 'skipped' ? (
+      {showDetails && pair.status !== 'skipped' && canAddMatchGame(state, pair.white, black) ? (
         <div className="mt-3 flex justify-end">
           <button
             className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}
@@ -187,9 +189,11 @@ function MatchCard(props: IMatchCardProps) {
           </button>
         </div>
       ) : null}
-      {modalOpen ? (
-        <GameModal onAdd={onAddGame} onClose={() => setModalOpen(false)} pair={pair} roster={roster} />
-      ) : null}
+      <Dialog onOpenChange={setModalOpen} open={modalOpen}>
+        <DialogContent className="max-w-lg">
+          <GameForm onAdd={onAddGame} pair={pair} roster={roster} />
+        </DialogContent>
+      </Dialog>
     </article>
   )
 }
@@ -247,7 +251,7 @@ function CompactName(props: ICompactNameProps) {
   const winner = pair.winner !== null && pair.winner.toLowerCase() === name.toLowerCase()
 
   return (
-    <p className={cn('min-w-0 text-base font-bold break-words', align === 'end' && 'text-right', winner && 'text-emerald-700')}>
+    <p className={cn('min-w-0 text-base font-bold break-words', align === 'end' && 'text-right', winner && 'text-emerald-700 dark:text-emerald-400')}>
       <PlayerName align={align} name={name} roster={roster} showNote={false} />
     </p>
   )
@@ -298,11 +302,11 @@ function PlayerSide(props: IPlayerSideProps) {
 
   return (
     <div className={cn('min-w-0', align === 'end' && 'text-right')}>
-      <p className={cn('text-lg font-bold break-words', winner && 'text-emerald-700')}>
+      <p className={cn('text-lg font-bold break-words', winner && 'text-emerald-700 dark:text-emerald-400')}>
         <PlayerName align={align} name={name} roster={roster} showNote={false} />
       </p>
       {showPoints ? (
-        <p className={cn('mt-1 text-sm font-bold tabular-nums', winner ? 'text-emerald-700' : 'text-muted-foreground')}>
+        <p className={cn('mt-1 text-sm font-bold tabular-nums', winner ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground')}>
           {pointLabel(points)}
         </p>
       ) : null}
@@ -416,26 +420,12 @@ function GameRows(props: IGameRowsProps) {
   )
 }
 
-function GameModal(props: IGameModalProps) {
-  const { pair, roster, onAdd, onClose } = props
+// Lives inside the dialog, so its fields reset each time the dialog closes.
+function GameForm(props: IGameFormProps) {
+  const { pair, roster, onAdd } = props
   const [url, setUrl] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-
-  useEffect(() => {
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => {
-      document.body.style.overflow = previous
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [onClose])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -452,55 +442,39 @@ function GameModal(props: IGameModalProps) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4"
-      onClick={onClose}
-      role="presentation"
-    >
-      <div
-        aria-labelledby="game-link-title"
-        aria-modal="true"
-        className="w-full max-w-lg rounded-2xl border border-border bg-background p-6 text-foreground"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <p className="text-xs font-bold tracking-[0.14em] text-secondary uppercase">Chess.com</p>
-        <h2 className="mt-3 text-3xl font-bold tracking-normal" id="game-link-title">
-          Add a game
-        </h2>
-        <p className="mt-4">
-          <PlayerName name={pair.white} roster={roster} />
-          <span className="mx-3 text-xs font-bold tracking-[0.14em] text-secondary uppercase">vs</span>
-          <PlayerName name={pair.black ?? ''} roster={roster} />
-        </p>
-        {pair.games.length > 0 ? (
-          <div className="mt-4">
-            <GameRows games={pair.games} />
-          </div>
-        ) : (
-          <p className="mt-4 text-muted-foreground">No games for this match yet.</p>
-        )}
-        <form className="mt-5 grid gap-3" onSubmit={(event) => void submit(event)}>
-          <input
-            aria-label="Chess.com game link"
-            autoFocus
-            className="h-9 rounded-lg border border-border bg-background px-3 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            onChange={(event) => setUrl(event.target.value)}
-            placeholder="https://www.chess.com/game/live/…"
-            value={url}
-          />
-          <div className="flex flex-wrap items-center gap-3">
-            <button className={cn(buttonVariants({ size: 'lg' }), 'hover:bg-secondary')} disabled={pending} type="submit">
-              {pending ? 'Adding…' : 'Add game'}
-            </button>
-            <button className={cn(buttonVariants({ size: 'lg', variant: 'outline' }))} onClick={onClose} type="button">
-              Done
-            </button>
-          </div>
-          {message ? <p className="text-secondary">{message}</p> : null}
-        </form>
-      </div>
-    </div>
+    <>
+      <p className="text-xs font-bold tracking-[0.14em] text-secondary uppercase">Chess.com</p>
+      <DialogTitle className="mt-3 text-3xl">Add a game</DialogTitle>
+      <p className="mt-4">
+        <PlayerName name={pair.white} roster={roster} />
+        <span className="mx-3 text-xs font-bold tracking-[0.14em] text-secondary uppercase">vs</span>
+        <PlayerName name={pair.black ?? ''} roster={roster} />
+      </p>
+      {pair.games.length > 0 ? (
+        <div className="mt-4">
+          <GameRows games={pair.games} />
+        </div>
+      ) : (
+        <p className="mt-4 text-muted-foreground">No games for this match yet.</p>
+      )}
+      <form className="mt-5 grid gap-3" onSubmit={(event) => void submit(event)}>
+        <input
+          aria-label="Chess.com game link"
+          autoFocus
+          className="h-9 rounded-lg border border-border bg-background px-3 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          onChange={(event) => setUrl(event.target.value)}
+          placeholder="https://www.chess.com/game/live/…"
+          value={url}
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <button className={cn(buttonVariants({ size: 'lg' }), 'hover:bg-secondary')} disabled={pending} type="submit">
+            {pending ? 'Adding…' : 'Add game'}
+          </button>
+          <DialogClose className={cn(buttonVariants({ size: 'lg', variant: 'outline' }))}>Done</DialogClose>
+        </div>
+        {message ? <p className="text-secondary">{message}</p> : null}
+      </form>
+    </>
   )
 }
 

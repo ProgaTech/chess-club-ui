@@ -5,6 +5,7 @@ export interface IBoardGame {
   url: string
   outcome: GameOutcome
   winnerName: string | null
+  winnerColor: 'white' | 'black' | null
   summary: string | null
   playedAt: string | null
   moveList: string | null

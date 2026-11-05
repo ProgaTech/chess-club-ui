@@ -72,7 +72,7 @@ function AnalysisAction({ gameId }: { gameId: string }) {
       {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : job?.status === 'ready' ? <Download className="size-3.5" /> : null}
       <span aria-live="polite">{label}</span>
     </Button>
-    {job?.status === 'ready' && <p className="mt-1 text-xs text-muted-foreground">Attach the file to your AI for a written review.</p>}
+    {job?.status === 'ready' && <p className="mt-1 text-xs text-muted-foreground">Attach the file to your AI to get an interactive HTML board with every move explained.</p>}
     {(error || job?.status === 'failed') && <p role="alert" className="mt-1 text-sm">{error || 'Stockfish could not finish this game.'}</p>}
   </div>
 }

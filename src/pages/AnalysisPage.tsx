@@ -106,7 +106,7 @@ function Report({id}: {id:string}) {
       : job.status === 'queued' ? 'Queued for analysis…' : 'Analyzing: ' + job.progress.done + ' / ' + job.progress.total + ' plies'}</div>
     {job?.status === 'ready' && <>
       <Button disabled={saving} onClick={download}>{saving ? 'Downloading…' : 'Download Markdown (.md)'}</Button>
-      <p>Attach the report to your preferred LLM and use the suggested prompt at the end.</p>
+      <p>Attach the report to your preferred LLM. The prompt at the end asks it for an interactive HTML board with every move explained.</p>
     </>}
     {error && <div role="alert">{error} <button className="underline" onClick={() => setRefresh(n => n+1)}>Refresh status</button></div>}
     <Link className="underline" to="/analysis">Analyze another game</Link>

@@ -5,6 +5,7 @@ import { playerPath } from '@/lib/players'
 import { cn } from '@/lib/utils'
 
 export interface IClubGame {
+  analysisGameId?: string | null
   url: string
   opponent: string
   color: 'white' | 'black'
@@ -60,6 +61,7 @@ function GameRow(props: IGameRowProps) {
           {game.opponent}
         </Link>
       </p>
+      {voice === 'you' && game.analysisGameId && <Link className="mt-2 inline-block text-sm underline" to={'/analysis?game=' + encodeURIComponent(game.analysisGameId)}>Analyze game</Link>}
       {colorNote ? <p className="mt-2 text-sm text-muted-foreground">{colorNote}</p> : null}
       {details.length > 0 ? <p className="mt-1 text-sm text-muted-foreground">{details.join(' · ')}</p> : null}
       <a

@@ -50,6 +50,33 @@ export function clubDelete<T>(path: string, token: string, body: unknown): Promi
 }
 
 async function clubRequest<T>(request: IClubRequest): Promise<T> {
+  return await readJson(await clubResponse(request)) as T
+}
+
+export async function downloadAnalysis(id: string, token: string) {
+  const response = await clubResponse({ path: '/analyses/' + encodeURIComponent(id) + '/report.md', token, method: 'GET' })
+  if (!response.headers.get('Content-Type')?.startsWith('text/markdown')) throw new Error('Expected a Markdown report.')
+  const url = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'chess-analysis-' + id + '.md'
+  document.body.append(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000)
+}
+
+export class ClubApiError extends Error {
+  status: number
+  retryAfter: number
+  constructor(message: string, response: Response) {
+    super(message)
+    this.status = response.status
+    this.retryAfter = Number(response.headers.get('Retry-After')) || 0
+  }
+}
+
+async function clubResponse(request: IClubRequest) {
   const { path, token, method, body } = request
   const response = await fetch(`${apiUrl}${path}`, {
     method,
@@ -61,13 +88,13 @@ async function clubRequest<T>(request: IClubRequest): Promise<T> {
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 
-  const payload = await readJson(response)
   if (!response.ok) {
+    const payload = await readJson(response)
     const errorBody = payload as IApiError | null
-    throw new Error(errorBody?.error ?? 'The club API did not accept this session.')
+    throw new ClubApiError(errorBody?.error ?? 'The club API did not accept this session.', response)
   }
 
-  return payload as T
+  return response
 }
 
 async function readJson(response: Response): Promise<unknown> {

@@ -1,26 +1,23 @@
-# Finished-game analysis: UI delivery plan
+# V1 implementation plan — download a game analysis
 
-Status: proposed work for React/Vite; no runtime change. [API contract, worker plan and release gates](https://github.com/ProgaTech/chess-club-api/pull/4/files). Outcome: a member can review one finished game, see where its evaluation changed, and inspect the actual continuation alongside the engine alternative. Coaching is optional.
+A member selects a finished club game or pastes its PGN, waits for Stockfish and downloads a Markdown report. The file contains the moves, engine evaluations, critical positions and a suggested prompt for use in the member's own LLM.
 
-| Increment | Work in this repository | Acceptance check |
-| --- | --- | --- |
-| 1. Contract and entry | Add typed analysis DTOs and a client beside src/lib/club-api.ts, using the existing Clerk token and clubGet/Post/Delete. Add an authenticated review route in src/App.tsx. Offer PGN paste plus a finished-game confirmation; offer Analyze on eligible saved games when their API record exposes a stable ID and PGN availability. | A pasted resignation game can be submitted. An unfinished game or saved game without PGN has an actionable message. Never send a tournament pairing ID as a game ID. |
-| 2. Job lifecycle | POST /analyses with either pgn or gameId. Navigate to a route containing the returned job ID; GET /analyses/:id on mount and poll with bounded backoff. Show queued/running stage and completed/total plies; stop on terminal state, unmount or sign-out. Handle coaching pending separately with slow, bounded refresh. | Reload restores progress. Double click does not start two analyses. A network loss preserves the ID and offers reconnect. 401 prompts sign-in; 404 does not reveal another member's game; 429 honors retry delay. |
-| 3. Engine review | Reuse GameBoard and replay conventions in src/lib/chess-replay.ts; adapt PGN-derived positions rather than assuming the existing move-list format or initial board. Synchronize evaluation plot, accessible move list, board and critical-moment cards through one selected ply. | Selecting the same ply in any view shows the same move and position. Mainline step controls and keyboard navigation work without a mouse. A draw or quiet game needs no invented turning point. |
-| 4. Coaching | Show optional explanations and lessons beside their referenced critical plies. Resolve evidence/line IDs to server-provided moves. Expose verified best and played lines with distinct labels; let the reader return to the played game. | If the model times out or prose fails validation, the engine review remains usable. No fabricated variation, browser model key or browser-side scoring. |
-| 5. Privacy and pilot | Provide Delete review (DELETE /analyses/:id) and explain that the source club game stays. Feature-flag entry points; retain ordinary game replay when analysis is unavailable. | Delete while polling, then reload: the review remains unavailable. Sign-out clears owner-scoped state; PGNs never enter analytics or URL parameters. |
+## 1. Submit a finished game
 
-## Contract details for implementation
+Add an authenticated analysis entry using the existing React/Vite routing and Clerk session. For a saved game, send its stable game ID after checking that a PGN is available. For pasted PGN, ask the member to confirm the game is finished. POST /analyses with either gameId or pgn plus finishedConfirmed. Preserve editable input on validation errors and disable repeated submission while the request is pending.
 
-Use the API plan as the contract owner. Agree on a shared versioned fixture before building both sides: queued, running, failed, ready with coaching pending/unavailable, ready with explanations. Status polling supplies {id,status,stage,progress:{done,total},report?,error?}. Submit handles 413 size and 422 input/unsupported-variant errors inline, preserving the editable PGN. A failed job shows a reason and only offers retry for recoverable errors. The pilot needs no push notification or streaming dependency.
+## 2. Show progress
 
-Ply 0 is startFen. Selecting ply N normally shows fenAfter of the Nth half-move; opening a comparison starts at that ply's fenBefore. Both branches begin at the same root. Decode the verified UCI sequence with chess.js for SAN display; an invalid line is unavailable, never silently repaired. Derive move numbers and side from the position, including a Black-to-move custom start. Board orientation changes only presentation. Chart scores are from White's perspective, labels for win-probability loss are from the mover's perspective. Show mate as mate, not an arbitrary numeric spike. Supply text equivalents for chart points and arrows; do not rely on red/green alone. Missing clocks, opening names or motifs are unknown, not zero.
+Keep the returned job ID in the review route. Poll GET /analyses/:id with bounded backoff and restore status on reload. Show queued, running (completed/total plies), ready or failed. Stop polling on terminal status, navigation or sign-out. Offer reconnect after network loss. Explain invalid/unfinished PGN inline and respect Retry-After for rate limits.
 
-## Inputs, tests and handoff
+## 3. Download the report
 
-- API: stable game identifiers and eligibility, sample JSON for each state, defined limits and error codes, test account, a staging worker and a feature-flagged deployment. UI work can start with the fixtures while worker latency is measured.
-- Product/chess reviewer: choose novice wording, review a quiet draw, Black blunder and forced mate, and approve how score perspective is labeled. Use actual White/Black from the game even when tournament seating was reversed.
-- Frontend: verify a mobile-width replay, keyboard-only navigation, custom starting FEN, promotion, mate, no-clock game, deletion and refresh mid-job. Exercise a real submission end to end against staging and compare board positions with the API fixture. Run the existing lint and production build scripts before rollout.
-- Later: archive import picker with date/time filters and batch progress; candidate-move Q&A rooted in the selected finished game; then weakness profiles, personal puzzles and progress views. Ship each only after its API evidence and access controls exist. Keep live-game assistance outside the review flow.
+When ready, show **Download Markdown (.md)** with a short hint that members can attach the file to their preferred LLM. On click, fetch GET /analyses/:id/report.md using the same API base and Clerk bearer token as the existing client. Add a download helper beside src/lib/club-api.ts that reads the successful response as a Blob and handles HTTP errors before saving. Generate the safe filename chess-analysis-<id>.md from the job ID, save via an object URL and release the URL after the browser starts the download. Preserve the server bytes and character encoding. Keep the button available for repeat downloads.
 
-First handoff: agree on one finished PGN with a Black turning point and its expected report. A reviewer should be able to click the chart, see the move on the board and replay the verified alternative before any model-generated text is enabled.
+Handle 401 by requesting sign-in, 404 by explaining that the review is unavailable and 409 by refreshing job status. Offer retry if the download is interrupted. The member controls where to upload the saved file.
+
+## 4. Verify the user flow
+
+Use the API team's queued/running/ready/failed JSON fixtures and golden UTF-8 Markdown file. Check keyboard access and small screens. Exercise reload during analysis, a failed download followed by retry, and a second download without submitting another job. Confirm an error response never becomes a saved .md file.
+
+For acceptance, submit a finished game in staging and open the downloaded .md file in a text editor. Compare it with the API response and verify it contains the full move list, score perspective, evidence for critical moments and a prompt that can be copied into a personal LLM. Run the existing lint and production build checks when implementing.

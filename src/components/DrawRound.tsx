@@ -2,6 +2,8 @@ import { ChevronDown, CircleCheck, Crown, ExternalLink, Plus, Swords } from 'luc
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { MatchAnalysisButton } from '@/components/MatchAnalysisButton'
+import { chessGameUrl } from '@/lib/chess-game'
 import { GameBoard } from '@/components/GameBoard'
 import { buttonVariants } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -374,6 +376,7 @@ function GameRows(props: IGameRowsProps) {
     <ul>
       {games.map((game) => {
         const open = openUrl === game.url
+        const gameId = chessGameUrl(game.url)?.split('/').slice(-2).join('-')
         const details = (
           <>
             <p className="text-sm font-bold">{gameLine(game)}</p>
@@ -401,18 +404,21 @@ function GameRows(props: IGameRowsProps) {
         )
 
         return (
-          <li className="flex items-start gap-2 py-2" key={game.url}>
-            <CircleCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-            {open ? (
-              <div className="min-w-0 flex-1">
-                <GameBoard action={action} boardId={game.url} details={details} moveList={game.moveList} />
-              </div>
-            ) : (
-              <>
-                <div className="min-w-0 flex-1">{details}</div>
-                {action}
-              </>
-            )}
+          <li className="py-2" key={game.url}>
+            <div className="flex items-start gap-2">
+              <CircleCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+              {open ? (
+                <div className="min-w-0 flex-1">
+                  <GameBoard action={action} boardId={game.url} details={details} moveList={game.moveList} />
+                </div>
+              ) : (
+                <>
+                  <div className="min-w-0 flex-1">{details}</div>
+                  {action}
+                </>
+              )}
+            </div>
+            {gameId && <div className="ml-6 mt-2"><MatchAnalysisButton gameId={gameId} /></div>}
           </li>
         )
       })}

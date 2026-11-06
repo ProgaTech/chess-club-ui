@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AccountSetup } from '@/components/AccountSetup.tsx'
 import { AppHeader } from '@/components/AppHeader.tsx'
 import { ClubAccountProvider } from '@/components/ClubAccount.tsx'
+import { AnalysisPage } from '@/pages/AnalysisPage'
 import { AccountsPage } from '@/pages/AccountsPage.tsx'
 import { DrawPage } from '@/pages/DrawPage.tsx'
 import { GamesPage } from '@/pages/GamesPage.tsx'
@@ -25,6 +26,7 @@ function App() {
           <Route path="/me" element={<AccountsPage />} />
           <Route path="/accounts" element={<Navigate to="/me" replace />} />
           <Route path="/draw" element={<DrawPage />} />
+          <Route path="/analysis/:id?" element={<AnalysisPage />} />
           <Route path="/games" element={<GamesPage />} />
           <Route path="/rules" element={<RulesPage />} />
           <Route path="/sign-in/*" element={<SignInPage />} />

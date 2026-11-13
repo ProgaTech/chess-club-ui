@@ -42,6 +42,7 @@ export function AppHeader() {
           <NavItem label="Me" to="/me" />
           <NavItem label="Members" to="/members" />
           <NavItem label="Draw" to="/draw" />
+          <NavItem label="Playoffs" to="/playoffs" />
           <NavItem label="Analysis" to="/analysis" />
           <NavItem label="Games" to="/games" />
           <RoleSwitch />

@@ -1,9 +1,12 @@
 import { Show, useAuth } from '@clerk/react'
-import { ArrowDown, ArrowRight, Check, Crown, Shuffle, Trophy } from 'lucide-react'
+import { ArrowDown, ArrowRight, Check, Crown, Plus, Shuffle, Trophy } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { GameForm, GameRows } from '@/components/DrawRound'
 import { buttonVariants } from '@/components/ui/button'
-import { useClubAccount } from '@/lib/club-account'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import type { IBoardGame } from '@/lib/board'
+import { canAddMatchGame, useClubAccount } from '@/lib/club-account'
 import { clubGet, clubPost } from '@/lib/club-api'
 import type { MatchId, PlayoffsResponse } from '@/lib/playoffs'
 import { cn } from '@/lib/utils'
@@ -69,6 +72,18 @@ function PlayoffsBoard() {
     } finally { setBusy(false) }
   }
 
+  async function addGame(match: MatchId, url: string): Promise<string | null> {
+    try {
+      const token = await getToken()
+      if (!token) return 'Please sign in again to add a game.'
+      await clubPost('/playoffs/games', token, { match, url })
+      await refresh()
+      return null
+    } catch (cause) {
+      return cause instanceof Error ? cause.message : 'Could not save this game.'
+    }
+  }
+
   const bracket = data?.saved?.bracket
   const winners = bracket?.winners ?? {}
   const finalist = bracket?.finalist ?? data?.finalist ?? null
@@ -103,6 +118,7 @@ function PlayoffsBoard() {
             <FinalSeat name={winners.qualifier ?? null} caption={winners.qualifier ? 'Playoff winner · Challenger' : 'Awaiting the playoff winner'} winner={!!winners.grand && winners.grand === winners.qualifier} />
           </div>
           {winners.grand ? <p className="mt-6 border-t border-secondary/20 pt-5 text-center font-bold text-secondary"><Trophy className="mr-2 inline size-5" />{winners.grand} is the champion</p> : <p className="mt-6 border-t pt-5 text-center text-xs text-muted-foreground">{finalist ? 'One seat secured. One seat to earn.' : 'The four-win player will appear here automatically.'}</p>}
+          {bracket && finalist && winners.qualifier ? <MatchGames players={[finalist, winners.qualifier]} games={data?.games.grand ?? []} onAdd={url => addGame('grand', url)} /> : null}
           {organizer && bracket && finalist && winners.qualifier ? <ResultActions match="grand" players={[finalist, winners.qualifier]} winner={winners.grand} busy={busy} choose={choose} /> : null}
         </div>
       </section>
@@ -124,11 +140,11 @@ function PlayoffsBoard() {
 
         <div className="mt-8 grid gap-5 md:grid-cols-[1fr_2rem_1fr_2rem_0.65fr] md:items-center">
           <div><StageLabel number="01" title="Semifinals" /><div className="space-y-5">
-            <MatchCard title="Semifinal 1" match="semi1" players={[seeds[0], seeds[1]]} placeholders={['Draw slot 1', 'Draw slot 2']} winner={winners.semi1} organizer={organizer} busy={busy} choose={choose} />
-            <MatchCard title="Semifinal 2" match="semi2" players={[seeds[2], seeds[3]]} placeholders={['Draw slot 3', 'Draw slot 4']} winner={winners.semi2} organizer={organizer} busy={busy} choose={choose} />
+            <MatchCard title="Semifinal 1" match="semi1" players={[seeds[0], seeds[1]]} placeholders={['Draw slot 1', 'Draw slot 2']} winner={winners.semi1} organizer={organizer} busy={busy} choose={choose} games={data?.games.semi1 ?? []} addGame={addGame} />
+            <MatchCard title="Semifinal 2" match="semi2" players={[seeds[2], seeds[3]]} placeholders={['Draw slot 3', 'Draw slot 4']} winner={winners.semi2} organizer={organizer} busy={busy} choose={choose} games={data?.games.semi2 ?? []} addGame={addGame} />
           </div></div>
           <Connector />
-          <div><StageLabel number="02" title="Playoff final" /><MatchCard title="The deciding match" match="qualifier" players={[winners.semi1 ?? null, winners.semi2 ?? null]} placeholders={['Winner of semifinal 1', 'Winner of semifinal 2']} winner={winners.qualifier} organizer={organizer} busy={busy} choose={choose} /></div>
+          <div><StageLabel number="02" title="Playoff final" /><MatchCard title="The deciding match" match="qualifier" players={[winners.semi1 ?? null, winners.semi2 ?? null]} placeholders={['Winner of semifinal 1', 'Winner of semifinal 2']} winner={winners.qualifier} organizer={organizer} busy={busy} choose={choose} games={data?.games.qualifier ?? []} addGame={addGame} /></div>
           <Connector />
           <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-5 text-center"><Trophy className="mx-auto size-8 text-secondary" /><p className="mt-4 text-xs font-bold tracking-widest text-secondary uppercase">Challenger</p><p className="mt-3 text-sm font-bold break-words">{winners.qualifier ?? 'One will advance'}</p><p className="mt-3 text-xs leading-relaxed text-muted-foreground">Earns the second seat in the grand final.</p></div>
         </div>
@@ -137,7 +153,7 @@ function PlayoffsBoard() {
 
       {pending ? <section aria-label="Confirm match result" className="sticky bottom-4 z-10 mt-8 rounded-xl border border-secondary/30 bg-card p-6 shadow-lg">
         <h2 className="font-bold">{pending.winner ? `Record ${pending.winner} as the winner?` : 'Clear this result?'}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">This updates the shared bracket. Changing an earlier result also clears results in later matches that depend on it.</p>
+        <p className="mt-2 text-sm text-muted-foreground">This updates the shared bracket. Changing an earlier result also clears results and game links in later matches that depend on it.</p>
         <div className="mt-4 flex gap-3"><button type="button" className={buttonVariants()} disabled={busy} onClick={() => void save('/playoffs/result', pending)}>{busy ? 'Saving…' : 'Confirm result'}</button><button type="button" className={buttonVariants({ variant: 'outline' })} disabled={busy} onClick={() => setPending(null)}>Cancel</button></div>
       </section> : null}
     </>
@@ -162,7 +178,16 @@ function Connector() {
 
 type ResultProps = { match: MatchId; players: [string | null, string | null]; winner?: string; busy: boolean; choose: (match: MatchId, winner: string | null) => void }
 
-function MatchCard({ title, placeholders, organizer, ...props }: ResultProps & { title: string; placeholders: [string, string]; organizer: boolean }) {
+type MatchCardProps = ResultProps & {
+  title: string
+  placeholders: [string, string]
+  organizer: boolean
+  games: IBoardGame[]
+  addGame: (match: MatchId, url: string) => Promise<string | null>
+}
+
+function MatchCard({ title, placeholders, organizer, games, addGame, ...props }: MatchCardProps) {
+  const [white, black] = props.players
   return <article className="overflow-hidden rounded-xl border bg-card shadow-sm">
     <div className="flex items-center justify-between gap-2 border-b px-4 py-3"><h4 className="text-xs font-bold">{title}</h4><span className="text-[10px] text-muted-foreground">{props.winner ? 'Complete' : props.players.every(Boolean) ? 'Ready to play' : 'Pending'}</span></div>
     <div className="divide-y">{props.players.map((name, index) => <div key={index} className={cn('flex min-h-16 items-center gap-3 px-4 py-4', props.winner === name && 'bg-secondary/5')}>
@@ -170,8 +195,28 @@ function MatchCard({ title, placeholders, organizer, ...props }: ResultProps & {
       <span className={cn('min-w-0 flex-1 text-sm break-words', name ? 'font-bold' : 'text-muted-foreground')}>{name ?? placeholders[index]}</span>
       {props.winner === name ? <Check aria-label="Winner" className="size-4 shrink-0 text-secondary" /> : null}
     </div>)}</div>
-    {organizer && props.players.every(Boolean) ? <div className="border-t px-4 pb-4"><ResultActions {...props} /></div> : null}
+    {white && black ? <div className="border-t px-4 pb-4">
+      <MatchGames players={[white, black]} games={games} onAdd={url => addGame(props.match, url)} />
+      {organizer ? <ResultActions {...props} /> : null}
+    </div> : null}
   </article>
+}
+
+// Same links and add-game dialog as a regular draw match.
+function MatchGames({ players, games, onAdd }: { players: [string, string]; games: IBoardGame[]; onAdd: (url: string) => Promise<string | null> }) {
+  const { state } = useClubAccount()
+  const [open, setOpen] = useState(false)
+  const canAdd = canAddMatchGame(state, players[0], players[1])
+  if (games.length === 0 && !canAdd) return null
+  return <div className="mt-3">
+    {games.length > 0 ? <GameRows games={games} /> : null}
+    {canAdd ? <div className="mt-2 flex justify-end">
+      <button type="button" className={buttonVariants({ size: 'sm', variant: 'outline' })} onClick={() => setOpen(true)}><Plus />{games.length === 0 ? 'Add game' : 'Add another'}</button>
+    </div> : null}
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-lg"><GameForm white={players[0]} black={players[1]} games={games} roster={[]} onAdd={onAdd} /></DialogContent>
+    </Dialog>
+  </div>
 }
 
 function ResultActions({ match, players, winner, busy, choose }: ResultProps) {

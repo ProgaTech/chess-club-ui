@@ -47,7 +47,9 @@ interface IGameRowsProps {
 }
 
 interface IGameFormProps {
-  pair: IBoardPair
+  white: string
+  black: string
+  games: IBoardGame[]
   roster: ISignupPlayer[]
   onAdd: (url: string) => Promise<string | null>
 }
@@ -193,7 +195,7 @@ function MatchCard(props: IMatchCardProps) {
       ) : null}
       <Dialog onOpenChange={setModalOpen} open={modalOpen}>
         <DialogContent className="max-w-lg">
-          <GameForm onAdd={onAddGame} pair={pair} roster={roster} />
+          <GameForm black={black} games={pair.games} onAdd={onAddGame} roster={roster} white={pair.white} />
         </DialogContent>
       </Dialog>
     </article>
@@ -368,7 +370,7 @@ function StatusBadge(props: IStatusBadgeProps) {
   return <span className="text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">Not played</span>
 }
 
-function GameRows(props: IGameRowsProps) {
+export function GameRows(props: IGameRowsProps) {
   const { games } = props
   const [openUrl, setOpenUrl] = useState<string | null>(null)
 
@@ -427,8 +429,8 @@ function GameRows(props: IGameRowsProps) {
 }
 
 // Lives inside the dialog, so its fields reset each time the dialog closes.
-function GameForm(props: IGameFormProps) {
-  const { pair, roster, onAdd } = props
+export function GameForm(props: IGameFormProps) {
+  const { white, black, games, roster, onAdd } = props
   const [url, setUrl] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -452,13 +454,13 @@ function GameForm(props: IGameFormProps) {
       <p className="text-xs font-bold tracking-[0.14em] text-secondary uppercase">Chess.com</p>
       <DialogTitle className="mt-3 text-3xl">Add a game</DialogTitle>
       <p className="mt-4">
-        <PlayerName name={pair.white} roster={roster} />
+        <PlayerName name={white} roster={roster} />
         <span className="mx-3 text-xs font-bold tracking-[0.14em] text-secondary uppercase">vs</span>
-        <PlayerName name={pair.black ?? ''} roster={roster} />
+        <PlayerName name={black} roster={roster} />
       </p>
-      {pair.games.length > 0 ? (
+      {games.length > 0 ? (
         <div className="mt-4">
-          <GameRows games={pair.games} />
+          <GameRows games={games} />
         </div>
       ) : (
         <p className="mt-4 text-muted-foreground">No games for this match yet.</p>

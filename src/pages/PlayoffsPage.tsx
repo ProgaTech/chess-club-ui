@@ -1,7 +1,8 @@
 import { Show, useAuth } from '@clerk/react'
-import { ArrowDown, ArrowRight, Check, Crown, Plus, Shuffle, Trophy } from 'lucide-react'
+import { ArrowDown, ArrowRight, Check, Crown, Plus, Trophy } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ChampionCelebration } from '@/components/ChampionCelebration'
 import { GameForm, GameRows } from '@/components/DrawRound'
 import { buttonVariants } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -65,7 +66,7 @@ function PlayoffsBoard() {
       if (!token) throw new Error('Please sign in again to save the playoff.')
       await clubPost(path, token, body)
       setPending(null)
-      setNotice(path.endsWith('/draw') ? 'The draw is saved. Your semifinal matchups are ready.' : 'Result saved. The winner advances automatically.')
+      setNotice('Result saved. The winner advances automatically.')
       await refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save the playoff.')
@@ -88,9 +89,22 @@ function PlayoffsBoard() {
   const winners = bracket?.winners ?? {}
   const finalist = bracket?.finalist ?? data?.finalist ?? null
   const seeds = bracket?.seeds ?? [null, null, null, null]
+  const seated = seeds.filter(Boolean).length
   const choose = (match: MatchId, winner: string | null) => {
     if (data?.saved) setPending({ match, winner, revision: data.saved.revision })
   }
+
+  // Plays once per viewer when the grand final is decided, live or on the next visit.
+  const champion = winners.grand ?? null
+  const runnerUp = champion ? (champion === finalist ? winners.qualifier ?? null : finalist) : null
+  const [closedFor, setClosedFor] = useState<string | null>(null)
+  const [replaying, setReplaying] = useState(false)
+  const celebrating = !!champion && closedFor !== champion && (replaying || !celebrationSeen(champion))
+  const closeCelebration = useCallback(() => {
+    if (champion) markCelebrationSeen(champion)
+    setClosedFor(champion)
+    setReplaying(false)
+  }, [champion])
 
   return (
     <>
@@ -117,7 +131,10 @@ function PlayoffsBoard() {
             <span className="text-center text-xl italic text-muted-foreground/60">vs.</span>
             <FinalSeat name={winners.qualifier ?? null} caption={winners.qualifier ? 'Playoff winner · Challenger' : 'Awaiting the playoff winner'} winner={!!winners.grand && winners.grand === winners.qualifier} />
           </div>
-          {winners.grand ? <p className="mt-6 border-t border-secondary/20 pt-5 text-center font-bold text-secondary"><Trophy className="mr-2 inline size-5" />{winners.grand} is the champion</p> : <p className="mt-6 border-t pt-5 text-center text-xs text-muted-foreground">{finalist ? 'One seat secured. One seat to earn.' : 'The four-win player will appear here automatically.'}</p>}
+          {winners.grand ? <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-secondary/20 pt-5 text-center">
+            <p className="font-bold text-secondary"><Trophy className="mr-2 inline size-5" />{winners.grand} is the champion</p>
+            <button type="button" className={buttonVariants({ size: 'sm', variant: 'outline' })} onClick={() => { setClosedFor(null); setReplaying(true) }}><Crown />Replay the moment</button>
+          </div> :<p className="mt-6 border-t pt-5 text-center text-xs text-muted-foreground">{finalist ? 'One seat secured. One seat to earn.' : 'The four-win player will appear here automatically.'}</p>}
           {bracket && finalist && winners.qualifier ? <MatchGames players={[finalist, winners.qualifier]} games={data?.games.grand ?? []} onAdd={url => addGame('grand', url)} /> : null}
           {organizer && bracket && finalist && winners.qualifier ? <ResultActions match="grand" players={[finalist, winners.qualifier]} winner={winners.grand} busy={busy} choose={choose} /> : null}
         </div>
@@ -126,29 +143,25 @@ function PlayoffsBoard() {
       <section aria-labelledby="playoff-title" className="mt-12">
         <div className="flex flex-wrap items-end justify-between gap-5">
           <div><p className="text-xs font-bold tracking-[0.16em] text-secondary uppercase">The road to the final</p><h2 id="playoff-title" className="mt-2 text-3xl font-bold">Playoff bracket</h2></div>
-          <span className="rounded-full border bg-card px-4 py-2 text-xs font-bold">{bracket ? 'Draw complete' : `${data?.contenders.length ?? 0} / 4 contenders`}</span>
+          <span className="rounded-full border bg-card px-4 py-2 text-xs font-bold">{seated === 4 ? 'Semifinals set' : `${seated} / 4 in the semifinals`}</span>
         </div>
 
-        {!bracket ? <div className="mt-6 rounded-xl border border-dashed p-5 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="max-w-xl"><h3 className="font-bold">{data?.canDraw ? 'The field is ready.' : 'The field is taking shape.'}</h3><p className="mt-2 text-sm text-muted-foreground">{data?.reason ?? (data?.canDraw ? 'Four players, three wins each. Draw the semifinal matchups.' : 'Waiting for the latest qualifying results.')}</p></div>
-            <button type="button" disabled={!data?.canDraw || !organizer || busy || !!error} onClick={() => void save('/playoffs/draw', {})} className={cn(buttonVariants(), 'bg-secondary text-secondary-foreground hover:bg-secondary/90')}><Shuffle className="size-4" />{busy ? 'Drawing…' : 'Draw playoffs'}</button>
-          </div>
-          {data && data.contenders.length > 0 ? <ul className="mt-5 flex flex-wrap gap-2" aria-label="Players currently on three wins">{data.contenders.map(name => <li key={name} className="rounded-lg border bg-card px-3 py-2 text-xs">{name}<span className="ml-3 font-bold text-secondary">3 W</span></li>)}</ul> : null}
-          {!organizer ? <p className="mt-4 text-xs text-muted-foreground">The organizer runs the draw once qualification is complete.</p> : null}
+        {seated < 4 || data?.reason ? <div className="mt-6 rounded-xl border border-dashed p-5 sm:p-6">
+          <h3 className="font-bold">{seated < 4 ? 'The field is taking shape.' : 'Qualification needs a decision.'}</h3>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground">{data?.reason ?? 'Each player who finishes qualifying with three wins takes the next free semifinal seat. Games can be added as soon as both seats of a semifinal are filled.'}</p>
         </div> : null}
 
         <div className="mt-8 grid gap-5 md:grid-cols-[1fr_2rem_1fr_2rem_0.65fr] md:items-center">
           <div><StageLabel number="01" title="Semifinals" /><div className="space-y-5">
-            <MatchCard title="Semifinal 1" match="semi1" players={[seeds[0], seeds[1]]} placeholders={['Draw slot 1', 'Draw slot 2']} winner={winners.semi1} organizer={organizer} busy={busy} choose={choose} games={data?.games.semi1 ?? []} addGame={addGame} />
-            <MatchCard title="Semifinal 2" match="semi2" players={[seeds[2], seeds[3]]} placeholders={['Draw slot 3', 'Draw slot 4']} winner={winners.semi2} organizer={organizer} busy={busy} choose={choose} games={data?.games.semi2 ?? []} addGame={addGame} />
+            <MatchCard title="Semifinal 1" match="semi1" players={[seeds[0], seeds[1]]} placeholders={['Next qualifier', 'Next qualifier']} winner={winners.semi1} organizer={organizer} busy={busy} choose={choose} games={data?.games.semi1 ?? []} addGame={addGame} />
+            <MatchCard title="Semifinal 2" match="semi2" players={[seeds[2], seeds[3]]} placeholders={['Next qualifier', 'Next qualifier']} winner={winners.semi2} organizer={organizer} busy={busy} choose={choose} games={data?.games.semi2 ?? []} addGame={addGame} />
           </div></div>
           <Connector />
           <div><StageLabel number="02" title="Playoff final" /><MatchCard title="The deciding match" match="qualifier" players={[winners.semi1 ?? null, winners.semi2 ?? null]} placeholders={['Winner of semifinal 1', 'Winner of semifinal 2']} winner={winners.qualifier} organizer={organizer} busy={busy} choose={choose} games={data?.games.qualifier ?? []} addGame={addGame} /></div>
           <Connector />
           <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-5 text-center"><Trophy className="mx-auto size-8 text-secondary" /><p className="mt-4 text-xs font-bold tracking-widest text-secondary uppercase">Challenger</p><p className="mt-3 text-sm font-bold break-words">{winners.qualifier ?? 'One will advance'}</p><p className="mt-3 text-xs leading-relaxed text-muted-foreground">Earns the second seat in the grand final.</p></div>
         </div>
-        <p className="mt-7 text-xs leading-relaxed text-muted-foreground">Semifinal winners advance to the playoff final. Its winner faces the four-win player in the grand final. Qualifying wins stay separate from playoff results.</p>
+        <p className="mt-7 text-xs leading-relaxed text-muted-foreground">The first player to two game wins advances automatically. The organizer can still record or correct a result. Semifinal winners advance to the playoff final. Its winner faces the four-win player in the grand final. Qualifying wins stay separate from playoff results.</p>
       </section>
 
       {pending ? <section aria-label="Confirm match result" className="sticky bottom-4 z-10 mt-8 rounded-xl border border-secondary/30 bg-card p-6 shadow-lg">
@@ -156,8 +169,19 @@ function PlayoffsBoard() {
         <p className="mt-2 text-sm text-muted-foreground">This updates the shared bracket. Changing an earlier result also clears results and game links in later matches that depend on it.</p>
         <div className="mt-4 flex gap-3"><button type="button" className={buttonVariants()} disabled={busy} onClick={() => void save('/playoffs/result', pending)}>{busy ? 'Saving…' : 'Confirm result'}</button><button type="button" className={buttonVariants({ variant: 'outline' })} disabled={busy} onClick={() => setPending(null)}>Cancel</button></div>
       </section> : null}
+      {celebrating ? <ChampionCelebration champion={champion} runnerUp={runnerUp} onClose={closeCelebration} /> : null}
     </>
   )
+}
+
+const CELEBRATION_KEY = 'playoff-champion-celebrated'
+
+function celebrationSeen(champion: string) {
+  try { return localStorage.getItem(CELEBRATION_KEY) === champion } catch { return false }
+}
+
+function markCelebrationSeen(champion: string) {
+  try { localStorage.setItem(CELEBRATION_KEY, champion) } catch { /* the celebration may play again */ }
 }
 
 function FinalSeat({ name, caption, winner }: { name: string | null; caption: string; winner: boolean }) {
